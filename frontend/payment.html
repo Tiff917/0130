@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Premium Subscription</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { 
+            background-color: #F3ECE5; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 20px; 
+            color: #6D5D50; 
+            overflow: hidden;
+            position: fixed;
+            /* ★ 加入這兩行來鎖死左右滑動 ★ */
+            overflow-x: hidden; 
+            width: 100%;
+        }
+
+        .card-container {
+            background: linear-gradient(135deg, #9C7C66, #6D5D50);
+            width: 100%; max-width: 350px; height: 200px;
+            border-radius: 20px; padding: 25px; color: white;
+            box-shadow: 0 10px 30px rgba(109, 93, 80, 0.3);
+            margin-bottom: 30px; position: relative;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        .chip { width: 40px; height: 30px; background: #e0d0c8; border-radius: 5px; opacity: 0.8; }
+        .card-number { font-size: 22px; letter-spacing: 2px; font-family: "Courier New", monospace; text-shadow: 0 2px 2px rgba(0,0,0,0.3); }
+        .card-details { display: flex; justify-content: space-between; font-size: 12px; text-transform: uppercase; opacity: 0.9; }
+        .card-name { font-weight: 600; font-size: 14px; }
+
+        .form-container { width: 100%; max-width: 350px; }
+        .input-group { margin-bottom: 15px; }
+        .label { font-size: 12px; font-weight: 700; margin-bottom: 5px; display: block; color: #8C7B6D; }
+        
+        input {
+            width: 100%; padding: 15px; border-radius: 12px;
+            border: 1px solid #ddd; background: white;
+            font-size: 16px; color: #333; outline: none;
+            transition: border 0.3s;
+        }
+        input:focus { border-color: #9C7C66; }
+
+        .row { display: flex; gap: 15px; }
+        .col { flex: 1; }
+
+        .pay-btn {
+            width: 100%; padding: 18px; border: none; border-radius: 30px;
+            background-color: #9C7C66; color: white;
+            font-size: 16px; font-weight: 700; cursor: pointer;
+            margin-top: 20px; box-shadow: 0 5px 15px rgba(156, 124, 102, 0.3);
+            transition: transform 0.1s;
+        }
+        .pay-btn:active { transform: scale(0.98); }
+        
+        .cancel-link {
+            margin-top: 20px; color: #999; font-size: 14px; text-decoration: none; font-weight: 500;
+        }
+
+        /* 模擬載入動畫 */
+        .spinner {
+            display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; margin-right: 10px; display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="card-container">
+        <div class="chip"></div>
+        <div class="card-number">•••• •••• •••• ••••</div>
+        <div class="card-details">
+            <div>
+                <span>Card Holder</span>
+                <div class="card-name">YOUR NAME</div>
+            </div>
+            <div>
+                <span>Expires</span>
+                <div class="card-name">MM/YY</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-container">
+        <div class="input-group">
+            <span class="label">CARD NUMBER</span>
+            <input type="tel" placeholder="0000 0000 0000 0000" maxlength="19" id="inputCard">
+        </div>
+        
+        <div class="input-group">
+            <span class="label">CARD HOLDER</span>
+            <input type="text" placeholder="Name on card">
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <span class="label">EXPIRY DATE</span>
+                <input type="tel" placeholder="MM/YY" maxlength="5">
+            </div>
+            <div class="col">
+                <span class="label">CVV</span>
+                <input type="tel" placeholder="123" maxlength="3">
+            </div>
+        </div>
+
+        <button class="pay-btn" id="payBtn">
+            <div class="spinner" id="spinner"></div>
+            <span id="btnText">Pay $9.99 / Month</span>
+        </button>
+    </div>
+
+    <a href="#" target="_top" class="cancel-link">Cancel</a>
+
+    <script>
+
+        // 在頁面載入時設定取消連結
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const source = urlParams.get('from');
+            const cancelLink = document.getElementById('cancelLink');
+            
+            if (source === 'social') {
+                cancelLink.href = "index.html?tab=social";
+            } else {
+                cancelLink.href = "profile.html";
+            }
+        });
+
+        // 通知外層殼層：進入付款頁面，鎖定左右滑動
+        window.parent.postMessage('lockSwiping', '*');
+
+        // 當頁面關閉或跳轉前，解鎖滑動
+        window.addEventListener('unload', () => {
+            window.parent.postMessage('unlockSwiping', '*');
+        });
+
+        // 1. 選取 DOM 元素
+        const payBtn = document.getElementById('payBtn');
+        const spinner = document.getElementById('spinner');
+        const btnText = document.getElementById('btnText');
+        
+        // 透過 placeholder 選取輸入框 (為了不改動您的 HTML 結構)
+        const inputCard = document.getElementById('inputCard');
+        const inputName = document.querySelector('input[placeholder="Name on card"]');
+        const inputExpiry = document.querySelector('input[placeholder="MM/YY"]');
+        const inputCvv = document.querySelector('input[placeholder="123"]');
+
+        // 2. 輸入限制邏輯 (即時監聽)
+
+        // [卡號]：純數字、每4位加空格、最多16位數字
+        inputCard.addEventListener('input', function (e) {
+            let value = e.target.value.replace(/\D/g, ''); // 移除所有非數字
+            value = value.substring(0, 16); // 限制最大長度
+            // 每4位加空格
+            let formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+            e.target.value = formatted;
+        });
+
+        // [持卡人]：純英文、空格 (移除數字和符號)
+        inputName.addEventListener('input', function (e) {
+            e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+        });
+
+        // [到期日]：純數字、自動加斜線、限制月份邏輯
+        inputExpiry.addEventListener('input', function (e) {
+            let value = e.target.value.replace(/\D/g, ''); // 移除非數字
+            value = value.substring(0, 4); // 限制只能輸入4個數字 (MMYY)
+
+            if (value.length >= 2) {
+                // 自動插入斜線
+                e.target.value = value.substring(0, 2) + '/' + value.substring(2);
+            } else {
+                e.target.value = value;
+            }
+        });
+
+        // [CVV]：純數字、最多3碼
+        inputCvv.addEventListener('input', function (e) {
+            let value = e.target.value.replace(/\D/g, '');
+            e.target.value = value.substring(0, 3);
+        });
+
+        // 3. 付款按鈕點擊事件 (最終檢查)
+        payBtn.addEventListener('click', function() {
+            // 驗證邏輯
+            const rawCard = inputCard.value.replace(/\s/g, ''); // 移除空格後的卡號
+            const rawExpiry = inputExpiry.value;
+            const rawCvv = inputCvv.value;
+            const rawName = inputName.value.trim();
+
+            let errorMessage = "";
+
+            if (rawCard.length !== 16) {
+                errorMessage = "卡號格式錯誤 (需為16碼)";
+            } else if (rawName.length === 0) {
+                errorMessage = "請輸入持卡人姓名";
+            } else if (rawExpiry.length !== 5 || !rawExpiry.includes('/')) {
+                errorMessage = "到期日格式錯誤 (MM/YY)";
+            } else if (rawCvv.length !== 3) {
+                errorMessage = "CVV 需為 3 碼";
+            }
+
+            // 如果有錯誤訊息，跳出警告並停止
+            if (errorMessage) {
+                alert(errorMessage);
+                return; 
+            }
+
+            // --- 驗證通過，開始模擬付款動畫 ---
+            payBtn.style.opacity = "0.8";
+            payBtn.disabled = true;
+            spinner.style.display = "inline-block";
+            btnText.textContent = "Processing...";
+
+            setTimeout(() => {
+            // 1. 儲存付款狀態
+            localStorage.setItem('isPremiumUser', 'true');
+
+            // 2. 獲取 URL 參數中的來源 (from)
+            const urlParams = new URLSearchParams(window.location.search);
+            const source = urlParams.get('from'); // 獲取 ?from=xxx
+
+            // 3. 成功提示
+            alert("Payment Successful! You are now a Premium Member.");
+
+            // 4. 解鎖外殼滑動
+            window.parent.postMessage('unlockSwiping', '*');
+
+            // 5. 根據來源決定跳轉目的地
+            if (source === 'social') {
+                // 如果是從 Social 來的，跳回首頁並切換到 Social 分頁 (假設 index.html 會處理)
+                // 或者是直接跳到 social.html 所在的頂層路徑
+                window.top.location.href = "index.html?tab=social"; 
+            } else {
+                // 預設（或來源是 profile）跳回 Profile
+                window.top.location.href = "profile.html";
+            }
+        }, 2000);
+    });
+    </script>
+</body>
+</html>

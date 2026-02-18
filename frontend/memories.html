@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>My Memories</title>
+    <style>
+        /* --- 全局基礎設定 --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #F3ECE5; padding: 24px; color: #8C7B6D; height: 100vh; display: flex; flex-direction: column; align-items: center; overscroll-behavior-y: none; position: relative; overflow-y: auto; -webkit-overflow-scrolling: touch;}
+
+        /* 標題區 */
+        h1 { 
+            font-size: 32px; 
+            font-weight: 700; 
+            color: #8C735D; 
+            margin-bottom: 5px; 
+            text-align: center; 
+            margin-top: 40px; 
+            padding-top: 80px;
+            padding-bottom: 8px;
+        }
+
+        .subtitle { 
+            font-size: 14px; 
+            color: #B0A093; 
+            margin-bottom: 20px; 
+            text-align: center; 
+            padding-bottom: 10px;
+        }
+        
+        /* Reset 按鈕 (左上角) - 核彈級 */
+        .clear-btn {
+            position: absolute; top: 20px; left: 20px; z-index: 100;
+            background-color: rgba(255, 255, 255, 0.8); color: #d32f2f; border: 1px solid #d32f2f; 
+            padding: 8px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; 
+            display: flex; align-items: center; gap: 5px;
+        }
+
+        /* 日曆樣式 */
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 350px; margin-bottom: 20px; }
+        .month-label { font-size: 20px; font-weight: 600; color: #6D5D50; text-align: center; width: 180px; }
+        .nav-btn { background: none; border: none; cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .nav-btn svg { width: 24px; height: 24px; stroke: #8C7B6D; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+
+        .calendar-container { width: 100%; max-width: 350px; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; }
+        .weekday { font-size: 13px; font-weight: 600; margin-bottom: 15px; color: #B0A093; }
+        .day-cell { aspect-ratio: 1/1; display: flex; justify-content: center; align-items: center; font-size: 16px; font-weight: 500; color: #A69688; position: relative; border-radius: 50%; }
+        
+        .memory-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; border: 2px solid #F3ECE5; box-shadow: 0 4px 8px rgba(0,0,0,0.15); cursor: pointer; }
+        .multiple-indicator { position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: #8C735D; top: 3px; left: 3px; z-index: 1; opacity: 0.3; }
+        
+        .date-overlay { position: absolute; z-index: 3; color: #fff; font-weight: 700; font-size: 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.6); pointer-events: none; }
+        .today-circle { background-color: #8C735D; color: white; width: 100%; height: 100%; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Story Viewer --- */
+        .story-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000; z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s; touch-action: none; }
+        .story-overlay.active { display: flex; opacity: 1; transform: translateY(0); }
+        .story-image { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
+        .progress-container { position: absolute; bottom: 30px; left: 10px; right: 10px; height: 3px; display: flex; gap: 5px; z-index: 10000; }
+        .bar { flex: 1; height: 100%; background-color: rgba(255, 255, 255, 0.3); border-radius: 2px; overflow: hidden; position: relative; }
+        .bar-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background-color: #ffffff; transition: width 0.1s linear; }
+        .bar.watched .bar-fill { width: 100%; }
+
+        /* --- 垃圾桶按鈕 (只刪單張) --- */
+        .delete-btn {
+            position: absolute; 
+            top: 60px; right: 25px; 
+            z-index: 2147483647; 
+            width: 40px; height: 40px; 
+            display: flex; justify-content: center; align-items: center;
+            background: rgba(0, 0, 0, 0.4); 
+            border-radius: 50%; cursor: pointer;
+            backdrop-filter: blur(5px); 
+            border: 1px solid rgba(255,255,255,0.3);
+            pointer-events: auto !important; 
+        }
+        .delete-btn:active { transform: scale(0.9); background: rgba(200, 0, 0, 0.6); }
+        .delete-btn svg { stroke: white; width: 24px; height: 24px; pointer-events: none; }
+
+        /* 隱形觸控區 */
+        .tap-area { position: absolute; top: 0; height: 100%; width: 35%; z-index: 1001; }
+        .tap-left { left: 0; }
+        .tap-right { right: 0; }
+    </style>
+</head>
+<body>
+
+    <button class="clear-btn" onclick="clearAllData()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        RESET APP
+    </button>
+
+    <div><h1>My Memories</h1><div class="subtitle">Keep your moments</div></div>
+
+    <div class="calendar-header">
+        <button class="nav-btn" onclick="changeMonth(-1)"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+        <div class="month-label" id="monthLabel">December 2024</div>
+        <button class="nav-btn" onclick="changeMonth(1)"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+    </div>
+
+    <div class="calendar-container" id="calendarContainer"></div>
+
+    <div id="storyOverlay" class="story-overlay">
+        <img id="storyImageDisplay" class="story-image" src="" alt="Story">
+        <div id="progressBarContainer" class="progress-container"></div>
+        
+        <div class="tap-area tap-left" onclick="prevStory(event)"></div>
+        <div class="tap-area tap-right" onclick="nextStory(event)"></div>
+
+        <div class="delete-btn" onclick="deleteCurrentStory(event)" ontouchstart="event.stopPropagation()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </div>
+        <div id="storyTimeLabel" style="color: white; font-size: 14px; font-weight: 600; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); padding: 10px;">
+        </div>
+    </div>
+
+    <script>
+        // 放在 script 標籤內的開頭
+        function formatTime(timestamp) {
+            const now = new Date().getTime();
+            const diff = now - timestamp;
+            
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return "Just now";
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            
+            // 超過一週顯示日期
+            const d = new Date(timestamp);
+            return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+        }
+        const dbName = "MemoriesDB";
+        const channel = new BroadcastChannel('memory_update'); 
+        let db;
+        let savedMemories = {}; 
+
+        // 監聽同步 
+        channel.onmessage = async function(event) {
+            if (event.data === 'updated') {
+                await loadDataFromDB();
+                renderCalendar();
+            }
+        };
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 8); // 版本 8
+
+                request.onupgradeneeded = function(e) {
+                    db = e.target.result;
+                    if (!db.objectStoreNames.contains("all_photos")) db.createObjectStore("all_photos", { autoIncrement: true });
+                    if (!db.objectStoreNames.contains("posts_timeline")) db.createObjectStore("posts_timeline", { keyPath: "id" });
+                    if (!db.objectStoreNames.contains("user_profile")) db.createObjectStore("user_profile");
+                };
+
+                request.onsuccess = function(e) { db = e.target.result; resolve(db); };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        // --- 只讀取 "回憶" (all_photos) ---
+        async function loadDataFromDB() {
+            const myEmail = localStorage.getItem('myProfileEmail');
+            if (!myEmail) return;
+
+            try {
+                const response = await fetch('get_memories.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: myEmail })
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    savedMemories = {}; 
+                    // 使用 reverse() 讓最早的照片排在陣列前面，最後播最新的
+                    result.data.reverse().forEach(record => {
+                        // 修正：手動解析日期字串，避免瀏覽器時區偏移導致日期差一天
+                        // 假設 created_at 格式為 "2026-02-06 15:00:00"
+                        const datePart = record.created_at.split(' ')[0]; // 取得 "2026-02-06"
+                        const parts = datePart.split('-');
+                        // 轉成日曆用的 key 格式 "2026-2-6" (去掉補零)
+                        const dateKey = `${parseInt(parts[0])}-${parseInt(parts[1])}-${parseInt(parts[2])}`;
+                        
+                        if (!savedMemories[dateKey]) savedMemories[dateKey] = [];
+                        
+                        let imageUrls = [];
+                        try {
+                            imageUrls = JSON.parse(record.images_json);
+                        } catch(e) { imageUrls = []; }
+
+                        imageUrls.forEach(url => {
+                            savedMemories[dateKey].push({
+                                dbId: record.id, 
+                                url: url,        
+                                timestamp: parseInt(record.timestamp)
+                            });
+                        });
+                    });
+                }
+            } catch (e) {
+                console.error("讀取雲端回憶失敗:", e);
+            }
+        }
+
+        let displayDate = new Date(); 
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+        initDB().then(async () => {
+            await loadDataFromDB();
+            renderCalendar();
+        });
+
+        // ★★★ 核彈級 Reset：清空所有資料庫 (Goal 1) ★★★
+        async function clearAllData() {
+            if (confirm("【警告】這將清空所有資料！\n\n回憶、社群貼文、留言將全部消失。\n確定要重置整個 App 嗎？")) {
+                const tx = db.transaction(["all_photos", "posts_timeline"], "readwrite");
+                
+                // 1. 清空回憶
+                tx.objectStore("all_photos").clear();
+                // 2. 清空社群
+                tx.objectStore("posts_timeline").clear();
+                
+                tx.oncomplete = async () => {
+                    savedMemories = {};
+                    renderCalendar();
+                    // 發送 'updated' 通知社群頁面清空畫面
+                    channel.postMessage('updated');
+                    alert("App 已重置，所有資料已清空。");
+                };
+            }
+        }
+
+        // --- 渲染日曆 ---
+        function renderCalendar() {
+            const container = document.getElementById('calendarContainer');
+            const label = document.getElementById('monthLabel');
+            container.innerHTML = '';
+            
+            const year = displayDate.getFullYear();
+            const month = displayDate.getMonth();
+            label.innerText = `${monthNames[month]} ${year}`;
+
+            const grid = document.createElement('div');
+            grid.className = 'calendar-grid fade-in';
+
+            weekdays.forEach(day => {
+                const d = document.createElement('div');
+                d.className = 'weekday'; d.innerText = day; grid.appendChild(d);
+            });
+
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDayIndex; i++) grid.appendChild(document.createElement('div'));
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                const dateKey = `${year}-${month + 1}-${d}`;
+                
+                if (savedMemories[dateKey] && savedMemories[dateKey].length > 0) {
+                    const photos = savedMemories[dateKey];
+                    const lastRecord = photos[photos.length - 1];
+                    
+                    if (photos.length > 1) {
+                        const ind = document.createElement('div');
+                        ind.className = 'multiple-indicator';
+                        cell.appendChild(ind);
+                    }
+                    
+                    const img = document.createElement('img');
+                    img.src = lastRecord.url;
+                    img.className = 'memory-photo';
+                    img.onclick = () => openStoryViewer(dateKey);
+                    cell.appendChild(img);
+                    
+                    const num = document.createElement('span');
+                    num.className = 'date-overlay'; num.innerText = d;
+                    cell.appendChild(num);
+                } else {
+                    const today = new Date();
+                    if (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d) {
+                        const c = document.createElement('div');
+                        c.className = 'today-circle'; c.innerText = d; cell.appendChild(c);
+                    } else {
+                        cell.innerText = d;
+                    }
+                }
+                grid.appendChild(cell);
+            }
+            container.appendChild(grid);
+        }
+
+        function changeMonth(step) {
+            displayDate.setDate(1);
+            displayDate.setMonth(displayDate.getMonth() + step);
+            renderCalendar();
+        }
+
+        // --- Story Viewer ---
+        let storyList = [], currentIndex = 0, storyTimer, startY = 0, currentY = 0, isDragging = false;
+        const overlay = document.getElementById('storyOverlay');
+        const DURATION = 3000; 
+
+        // --- 修正：確保日期排序由舊到新 ---
+        function openStoryViewer(clickedDateKey) {
+        storyList = [];
+        let foundStartIndex = -1;
+
+        // 1. 取得所有日期並按時間順序排列
+        const sortedKeys = Object.keys(savedMemories).sort((a, b) => {
+            const ad = a.split('-').map(n => n.padStart(2, '0')).join('');
+            const bd = b.split('-').map(n => n.padStart(2, '0')).join('');
+            return ad.localeCompare(bd);
+        });
+
+        // 2. 建立總清單，並在過程中紀錄點擊日期的位置
+        sortedKeys.forEach(key => {
+            const records = savedMemories[key];
+            records.forEach((record) => {
+                // 如果還沒找到起始點，且這條紀錄的日期符合點擊的日期
+                if (foundStartIndex === -1 && key === clickedDateKey) {
+                    foundStartIndex = storyList.length;
+                }
+                
+                storyList.push({ 
+                    date: key, 
+                    url: record.url,
+                    dbId: record.dbId,
+                    timestamp: record.timestamp 
+                });
+            });
+        });
+
+        // 3. 設定索引：如果沒找到（保險起見），就從 0 開始
+        currentIndex = foundStartIndex !== -1 ? foundStartIndex : 0;
+
+        overlay.classList.add('active');
+        renderStory();
+    }
+
+        // ★★★ 垃圾桶刪除功能：只刪除回憶 (Goal 2) ★★★
+        // --- 修正：刪除雲端回憶照片 ---
+        async function deleteCurrentStory(e) {
+            if(e) { e.stopPropagation(); e.preventDefault(); }
+            clearTimeout(storyTimer);
+
+            if (confirm("確定要從雲端刪除這張回憶照片嗎？")) {
+                const currentItem = storyList[currentIndex];
+                
+                try {
+                    const response = await fetch('delete_post.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            post_id: currentItem.dbId,
+                            email: localStorage.getItem('myProfileEmail')
+                        })
+                    });
+                    const result = await response.json();
+
+                    if (result.status === 'success') {
+                        await loadDataFromDB(); // 重新整理資料
+                        storyList.splice(currentIndex, 1);
+                        
+                        if (storyList.length === 0) {
+                            closeStory();
+                        } else {
+                            if (currentIndex >= storyList.length) currentIndex = storyList.length - 1;
+                            renderStory();
+                        }
+                        renderCalendar();
+                        alert("已成功從雲端刪除");
+                    }
+                } catch (err) {
+                    alert("刪除失敗");
+                }
+            } else {
+                storyTimer = setTimeout(() => nextStory(), DURATION);
+            }
+        }
+        
+        function renderStory() {
+            if (currentIndex < 0 || currentIndex >= storyList.length) return;
+            const currentItem = storyList[currentIndex];
+            document.getElementById('storyImageDisplay').src = currentItem.url;
+
+            const timeLabel = document.getElementById('storyTimeLabel'); 
+            if (timeLabel) {
+                const timeString = formatTime(currentItem.timestamp);
+                timeLabel.innerText = `${currentItem.date} • ${timeString}`;
+            }
+            const sameDay = storyList.filter(s => s.date === currentItem.date);
+            const idxInDay = sameDay.findIndex(s => s.url === currentItem.url);
+            const barContainer = document.getElementById('progressBarContainer');
+            barContainer.innerHTML = '';
+
+            sameDay.forEach((s, i) => {
+                const bar = document.createElement('div');
+                bar.className = 'bar ' + (i < idxInDay ? 'watched' : '');
+                const fill = document.createElement('div');
+                fill.className = 'bar-fill';
+                bar.appendChild(fill);
+                barContainer.appendChild(bar);
+                if (i === idxInDay) {
+                    fill.offsetWidth; 
+                    fill.style.width = '100%'; 
+                    fill.style.transition = `width ${DURATION}ms linear`; 
+                } else if (i < idxInDay) {
+                    fill.style.width = '100%';
+                }
+            });
+
+            clearTimeout(storyTimer);
+            storyTimer = setTimeout(() => nextStory(), DURATION);
+        }
+
+        function nextStory(e) { if(e) e.stopPropagation(); if (currentIndex < storyList.length - 1) { currentIndex++; renderStory(); } else { closeStory(); } }
+        function prevStory(e) { if(e) e.stopPropagation(); if (currentIndex > 0) { currentIndex--; renderStory(); } else { renderStory(); } }
+        function closeStory() { clearTimeout(storyTimer); overlay.classList.remove('active'); }
+
+        overlay.addEventListener('touchstart', (e) => { 
+            if(e.target.closest('.delete-btn')) return;
+            startY = e.touches[0].clientY; isDragging = false; overlay.style.transition = 'none'; 
+        });
+        
+        overlay.addEventListener('touchmove', (e) => { 
+            if(e.target.closest('.delete-btn')) return;
+            currentY = e.touches[0].clientY; const diff = currentY - startY; 
+            if (diff > 0) { isDragging = true; e.preventDefault(); overlay.style.transform = `translateY(${diff}px)`; overlay.style.opacity = 1 - (diff / 600); } 
+        });
+        
+        overlay.addEventListener('touchend', (e) => { 
+            if(e.target.closest('.delete-btn')) return;
+            if (isDragging && currentY - startY > 100) closeStory(); else { overlay.style.transition = '0.2s'; overlay.style.transform = 'translateY(0)'; overlay.style.opacity = '1'; } isDragging = false; 
+        });
+    </script>
+</body>
+</html>

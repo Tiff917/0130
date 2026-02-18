@@ -1,0 +1,17 @@
+# Python 相關 (後端)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# Node.js 相關 (前端)
+node_modules/
+.DS_Store
+dist/
+
+# 編輯器相關
+.vscode/
+.idea/

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Preference Selection</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        /* 莫蘭迪配色方案 */
+        :root {
+            --primary-active: #D7BDB0;    /* 暖粉棕 */
+            --bg-global: #E3D5CA;         /* 米膚色 (電腦版背景) */
+            --bg-app: #F5EBE1;            /* 奶油色 (App 背景) */
+            --inactive: #D6CCC2;          /* 暖灰色 */
+            --text-dark: #6D5D55;         /* 深暖棕 */
+            --text-white: #FFFFFF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-global); 
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            width: 100%;
+            overflow: hidden;
+            /* ★ 加入這兩行來鎖死左右滑動 ★ */
+            overflow-x: hidden; 
+            width: 100%;
+        }
+
+        /* --- 主容器 (響應式核心) --- */
+        .app-container {
+            width: 100%;
+            height: 100%; /* 手機版全螢幕 */
+            background-color: var(--bg-app);
+            display: flex;
+            flex-direction: column;
+            padding: 40px 30px; /* 增加內部間距 */
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 電腦與平板版的響應式設定 */
+        @media (min-width: 480px) {
+            .app-container {
+                max-width: 400px;  /* 限制最大寬度 */
+                height: 85vh;      /* 電腦版高度 */
+                max-height: 800px;
+                border-radius: 40px; /* 只有電腦版有圓角 */
+                box-shadow: 0 20px 40px rgba(100, 80, 70, 0.15);
+                /* ★ 確保手機版也鎖死 ★ */
+                overflow-x: hidden;
+            }
+        }
+
+        /* --- 標題區域 --- */
+        .header {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 40px;
+            flex-shrink: 0; /* 防止被擠壓 */
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.3;
+            color: var(--text-dark);
+            letter-spacing: 0.5px;
+        }
+
+        /* --- 選項卡片區域 --- */
+        .options-container {
+            display: flex;
+            gap: 20px;
+            flex: 1; /* 讓選項區域佔據剩餘空間，但不強制高度 */
+            max-height: 300px; /* 限制最大高度以免太長 */
+            margin-bottom: 40px;
+            width: 100%;
+        }
+
+        .option-box {
+            flex: 1;
+            background-color: var(--inactive); 
+            border-radius: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .option-box span {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text-dark);
+            letter-spacing: 1px;
+            line-height: 1.4;
+        }
+
+        /* 選中狀態 */
+        .option-box.selected {
+            background-color: var(--primary-active); 
+            transform: translateY(-8px);
+            box-shadow: 0 15px 25px rgba(215, 189, 176, 0.4);
+        }
+        
+        .option-box.selected span {
+            color: var(--text-white); 
+        }
+
+        /* --- 進度指示點 --- */
+        .progress-dots {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: auto; /* 讓它往上頂，與下方按鈕分開 */
+            height: 20px;
+            align-items: center;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--inactive);
+            transition: all 0.3s ease;
+        }
+
+        .dot.active {
+            width: 30px;
+            background-color: var(--text-dark);
+            border-radius: 10px;
+        }
+
+        /* --- 下一步按鈕 --- */
+        .next-btn {
+            width: 100%;
+            height: 70px;
+            background-color: var(--primary-active);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-size: 32px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px; 
+            opacity: 0.4;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: none;
+        }
+
+        .next-btn.active {
+            opacity: 1;
+            pointer-events: all;
+            box-shadow: 0 10px 20px rgba(215, 189, 176, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .next-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* --- 動畫 --- */
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <div class="header">
+            <h1 id="questionTitle">Make us KNOW<br>you more</h1>
+        </div>
+
+        <div class="options-container" id="optionsContainer">
+            <div class="option-box" id="optionLeft" onclick="selectOption('left')">
+                <span id="textLeft">Option A</span>
+            </div>
+            <div class="option-box" id="optionRight" onclick="selectOption('right')">
+                <span id="textRight">Option B</span>
+            </div>
+        </div>
+
+        <div class="progress-dots" id="progressDots"></div>
+
+        <button class="next-btn" id="nextBtn">
+            <i class='bx bx-check'></i>
+        </button>
+        
+    </div>
+
+    <script>
+
+        // 進入偏好設定頁面時，鎖定主殼層滑動，防止在點擊選項時誤觸翻頁
+        window.parent.postMessage('lockSwiping', '*');
+
+        // 離開頁面準備跳轉前，解鎖滑動
+        window.addEventListener('beforeunload', () => {
+            window.parent.postMessage('unlockSwiping', '*');
+        });
+
+        // 資料設定
+        const steps = [
+            { left: "飯", right: "麵" },
+            { left: "葷食", right: "素食" },
+            { left: "中式", right: "美式" },
+            { left: "清淡", right: "重口味" },
+            { left: "餐廳", right: "街頭美食" },
+            { left: "獨享", right: "多人分享" }
+        ];
+
+        let currentStep = 0;
+        let selectedValue = null;
+
+        // DOM 元素
+        const textLeft = document.getElementById('textLeft');
+        const textRight = document.getElementById('textRight');
+        const optionLeft = document.getElementById('optionLeft');
+        const optionRight = document.getElementById('optionRight');
+        const nextBtn = document.getElementById('nextBtn');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const progressDotsContainer = document.getElementById('progressDots');
+
+        // 初始化進度點
+        function initDots() {
+            progressDotsContainer.innerHTML = ''; 
+            for (let i = 0; i < steps.length; i++) {
+                const dot = document.createElement('div');
+                dot.classList.add('dot');
+                if (i === 0) dot.classList.add('active');
+                progressDotsContainer.appendChild(dot);
+            }
+        }
+
+        // 更新畫面
+        function renderStep() {
+            optionsContainer.classList.remove('fade-in');
+            void optionsContainer.offsetWidth; // 觸發 Reflow
+            optionsContainer.classList.add('fade-in');
+
+            textLeft.innerText = steps[currentStep].left;
+            textRight.innerText = steps[currentStep].right;
+
+            optionLeft.classList.remove('selected');
+            optionRight.classList.remove('selected');
+            selectedValue = null;
+            nextBtn.classList.remove('active');
+
+            const dots = document.querySelectorAll('.dot');
+            dots.forEach((dot, index) => {
+                if (index === currentStep) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+        }
+
+        // 選擇邏輯
+        function selectOption(side) {
+            selectedValue = side;
+
+            if (side === 'left') {
+                optionLeft.classList.add('selected');
+                optionRight.classList.remove('selected');
+            } else {
+                optionRight.classList.add('selected');
+                optionLeft.classList.remove('selected');
+            }
+
+            nextBtn.classList.add('active');
+        }
+
+        // 按鈕點擊事件
+        nextBtn.addEventListener('click', function() {
+            if (!selectedValue) return;
+
+            console.log(`Step ${currentStep+1}: ${steps[currentStep][selectedValue]}`);
+
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                renderStep();
+            } else {
+                window.parent.postMessage('unlockSwiping', '*');
+                window.top.location.href = "index.html"; 
+            }
+        });
+
+        // 啟動
+        initDots();
+        renderStep();
+    </script>
+</body>
+</html>

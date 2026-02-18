@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Home</title>
+    <style>
+        /* Global Settings */
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        html, body { width: 100%; height: 100%; overflow: hidden ; background-color: #F3ECE5; }
+        body { display: flex; flex-direction: column; justify-content: space-between; }
+
+        /* Header */
+        .header { flex-shrink: 0; padding: 30px 24px 5px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .brown-btn { background-color: #9C7C66; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .avatar-placeholder { width: 50px; height: 50px; border-radius: 50%; }
+        .search-pill { height: 50px; width: 140px; border-radius: 25px; display: flex; justify-content: flex-start; align-items: center; padding-left: 15px; }
+        .chat-btn { width: 50px; height: 50px; border-radius: 50%; }
+
+        /* Main Content */
+        .c{
+            margin:0px 0;
+        }
+        
+        .content { 
+            flex: 1; 
+            width: 100%; 
+            /* 讓 Flexbox 負責置中，移除 margin */
+            margin: 0; 
+            padding: 20px 24px; 
+            
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            overflow: hidden; 
+        }
+
+        .card { 
+            width: 100%; 
+            max-width: 500px; 
+            /* 移除多餘的 margin */
+            margin: 10px 0;
+            
+            /* 強制正方形 */
+            aspect-ratio: 1 / 1; 
+            
+            /* --- ★★★ 簡單暴力法 ★★★ --- */
+            /* 1. 容器設圓角 (雙重保險) */
+            border-radius: 80px;
+            
+            /* 2. 背景透明，避免露出尖角 */
+            background-color: transparent; 
+            position: relative; 
+            
+            /* 3. 移除所有複雜的裁切語法，回歸最原始的設定 */
+            
+            transition: transform 0.2s ease; 
+            cursor: grab;
+        }
+
+        .card img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            display: block; 
+            pointer-events: none; 
+            user-select: none;
+            
+            /* --- ★★★ 關鍵修正：直接讓圖片變圓 ★★★ --- */
+            /* 直接命令圖片變成圓角，這是最不會出錯的方法 */
+            border-radius: 80px; 
+        }
+
+        /* Footer */
+        .footer { flex-shrink: 0; padding: 5px 40px 40px 40px; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 600px; align-self: center; }
+        .icon-brown { stroke: #9C7C66; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+        
+        .shutter-btn { width: 72px; height: 72px; border-radius: 50%; border: 4px solid #9C7C66; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.1s; }
+        .shutter-btn:active { transform: scale(0.95); }
+        .shutter-inner { width: 56px; height: 56px; background-color: #9C7C66; border-radius: 50%; }
+        svg { display: block; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.4); z-index: 200; display: none; justify-content: center; align-items: flex-end; opacity: 0; transition: opacity 0.3s; }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .action-sheet { width: 100%; max-width: 100%; margin-bottom: 0; background-color: #F3ECE5; border-top-left-radius: 24px; border-top-right-radius: 24px; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); overflow: hidden; }
+        .modal-overlay.show .action-sheet { transform: translateY(0); }
+        .action-btn { background-color: #F3ECE5; padding: 20px; text-align: center; font-size: 18px; font-weight: 500; color: #9C7C66; cursor: pointer; border-bottom: 1px solid rgba(156, 124, 102, 0.2); }
+        .action-btn:active { background-color: #E0D5CC; }
+        .action-btn.cancel { font-weight: 700; border-bottom: none; color: #8C735D; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+        
+        #loading-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 15px 25px; border-radius: 25px; font-size: 14px; z-index: 300; display: none; }
+    
+        /* 月回顧 Overlay 基礎 */
+        .recap-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(243, 236, 229, 0.95); /* 奶油色背景 */
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            z-index: 20000; display: none; flex-direction: column;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+
+        /* 第一階段：底片觀景窗 */
+        .film-viewport {
+            width: 280px; height: 380px;
+            border: 15px solid #1a1a1a; 
+            border-radius: 8px;
+            position: relative; overflow: hidden;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.4);
+            background: #000;
+        }
+        .film-reel { display: flex; flex-direction: column; }
+
+        /* 第三階段：長條捲動區 */
+        .story-strip-scroll {
+            width: 100%; max-height: 75vh;
+            overflow-y: auto; padding: 20px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 長條單張照片塊 */
+        .strip-item {
+            position: relative; width: 75%; background: #fff;
+            margin: 40px 0; padding: 12px 12px 30px 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        /* 撕紙邊緣效果 */
+        .torn-edge {
+            clip-path: polygon(0% 2%, 5% 0%, 10% 3%, 15% 1%, 20% 4%, 25% 2%, 30% 5%, 35% 3%, 40% 6%, 45% 4%, 50% 7%, 55% 5%, 60% 8%, 65% 6%, 70% 9%, 75% 7%, 80% 10%, 85% 8%, 90% 10%, 95% 9%, 100% 10%, 100% 90%, 95% 92%, 90% 88%, 85% 91%, 80% 89%, 75% 93%, 70% 90%, 65% 94%, 60% 91%, 55% 95%, 50% 92%, 45% 96%, 40% 93%, 35% 97%, 30% 94%, 25% 98%, 20% 95%, 15% 99%, 10% 96%, 5% 100%, 0% 97%);
+        }
+
+        .bg-day-number {
+            position: absolute; font-size: 100px; font-family: 'Arial Black', sans-serif;
+            font-weight: 900; color: rgba(140, 115, 93, 0.08); 
+            z-index: -1; top: -30px; left: -10px;
+        }
+
+        .film-info-text {
+            position: absolute; bottom: 8px; right: 15px;
+            font-family: 'Courier New', monospace; font-size: 9px;
+            color: #d4a017; letter-spacing: 1px;
+        }
+
+        /* 控制按鈕 */
+        .recap-controls { margin-top: 20px; display: flex; gap: 15px; z-index: 20001; }
+        .share-btn { background: #8C735D; color: white; border: none; padding: 12px 20px; border-radius: 25px; font-weight: 600; }
+        .close-recap { background: white; color: #8C735D; border: 1px solid #8C735D; padding: 12px 20px; border-radius: 25px; }
+
+        @keyframes fastFlashback {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(var(--travel-distance)); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a href="profile.html" target="_top" style="text-decoration: none;"><div class="brown-btn avatar-placeholder"></div></a>
+        <div class="brown-btn search-pill">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+        <a href="message.html" target="_top" class="brown-btn chat-btn" style="text-decoration: none;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        </a>
+    </div>
+    <div class="c">
+        <div class="content">
+            <div class="card">
+                <img id="displayImg" src="https://images.unsplash.com/photo-1579954115545-a95591f28bfc?q=80&w=2070&auto=format&fit=crop" alt="Display">
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <a href="search.html" target="_top" style="text-decoration: none; display: flex;"><svg class="icon-brown" width="32" height="32" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></a>
+        <label class="shutter-btn"><div class="shutter-inner"></div></label>
+        <a href="edit.html" target="_top" style="text-decoration: none; display: flex;"><svg class="icon-brown" width="32" height="32" viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></a>
+    </div>
+
+    <input type="file" id="input_camera" accept="image/*" capture="environment" style="display: none;">
+    <input type="file" id="input_gallery" accept="image/*" multiple style="display: none;">
+
+    <div id="action-sheet-overlay" class="modal-overlay">
+        <div class="action-sheet">
+            <div class="action-btn" id="btn_camera">立即拍照</div>
+            <div class="action-btn" id="btn_gallery">從相簿選擇</div>
+            <div class="action-btn cancel" id="btn_cancel">取消</div>
+        </div>
+    </div>
+
+    <div id="loading-toast">Saving...</div>
+
+    <div id="recapOverlay" class="recap-overlay">
+        <div id="recapCaptureArea" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+            <div id="recapGrid" style="width: 100%; display: flex; flex-direction: column; align-items: center;"></div>
+        </div>
+
+        <div class="recap-controls">
+            <button class="share-btn" onclick="downloadRecap()">Save & Share</button>
+            <button class="close-recap" onclick="closeRecap()">Close</button>
+        </div>
+    </div>
+    
+    <script>
+        // --- 全域變數與初始化 ---
+        const dbName = "MemoriesDB";
+        const channel = new BroadcastChannel('memory_update'); 
+        let db;
+
+        // 1. 資料庫初始化
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 8);
+                request.onupgradeneeded = (e) => {
+                    db = e.target.result;
+                    if (!db.objectStoreNames.contains("posts_timeline")) db.createObjectStore("posts_timeline", { keyPath: "id" });
+                    if (!db.objectStoreNames.contains("all_photos")) db.createObjectStore("all_photos", { autoIncrement: true });
+                    if (!db.objectStoreNames.contains("user_profile")) db.createObjectStore("user_profile");
+                };
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        // 2. 頁面載入核心邏輯
+        window.addEventListener('load', () => {
+            initDB().then(() => {
+                loadUserProfile();
+                loadLatestPhoto();
+                // 偵測是否由通知觸發月回顧
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('action') === 'showRecap') {
+                    initRecapExperience();
+                }
+            });
+        });
+
+        // 3. 讀取使用者頭像
+        async function loadUserProfile() {
+            const avatarDiv = document.querySelector('.avatar-placeholder');
+            if (!db) await initDB();
+            const tx = db.transaction(["user_profile"], "readonly"); 
+            const store = tx.objectStore("user_profile");
+            const req = store.get("avatar");
+
+            req.onsuccess = (e) => {
+                const result = e.target.result;
+                if (avatarDiv && result) {
+                    let url = (result instanceof Blob || result instanceof File) ? URL.createObjectURL(result) : result;
+                    avatarDiv.style.backgroundImage = `url('${url}')`;
+                    avatarDiv.style.backgroundSize = 'cover';
+                    avatarDiv.style.backgroundPosition = 'center';
+                    avatarDiv.style.backgroundColor = 'transparent'; 
+                }
+            };
+        }
+
+        // 4. 讀取最新一張回憶照
+        async function loadLatestPhoto() {
+            try {
+                const myEmail = localStorage.getItem('myProfileEmail');
+                if (!myEmail) return;
+
+                const response = await fetch('get_social_feed.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: myEmail })
+                });
+                const result = await response.json();
+
+                if (result.status === 'success' && result.data && result.data.length > 0) {
+                    const latestPost = result.data[0];
+                    let urls;
+                    
+                    // 安全解析 JSON
+                    try {
+                        urls = typeof latestPost.images_json === 'string' 
+                            ? JSON.parse(latestPost.images_json) 
+                            : latestPost.images_json;
+                    } catch(e) {
+                        urls = [];
+                    }
+
+                    if (urls && urls.length > 0) {
+                        const imgElement = document.getElementById('displayImg');
+                        imgElement.src = urls[0]; 
+                    }
+                }
+            } catch (e) { 
+                console.error("雲端照片讀取失敗:", e); 
+            }
+        }
+        // 監聽跨頁面更新
+        channel.onmessage = (event) => {
+            if (event.data === 'updated') loadLatestPhoto();
+        };
+
+        // --- 檔案上傳與相機功能 ---
+        const shutterBtn = document.querySelector('.shutter-btn');
+        const actionOverlay = document.getElementById('action-sheet-overlay');
+        const toast = document.getElementById('loading-toast');
+
+        shutterBtn.addEventListener('click', (e) => { e.preventDefault(); actionOverlay.classList.add('show'); });
+        document.getElementById('btn_cancel').addEventListener('click', () => actionOverlay.classList.remove('show'));
+        document.getElementById('btn_camera').addEventListener('click', () => { document.getElementById('input_camera').click(); actionOverlay.classList.remove('show'); });
+        document.getElementById('btn_gallery').addEventListener('click', () => { document.getElementById('input_gallery').click(); actionOverlay.classList.remove('show'); });
+
+        // --- 修正：將照片傳送到雲端 upload_post.php ---
+        async function handleFileSelect(e) {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            toast.style.display = 'block';
+            toast.textContent = "Uploading...";
+
+            const formData = new FormData();
+            formData.append('email', localStorage.getItem('myProfileEmail'));
+            
+            // 將所有選取的檔案加入 FormData
+            for (let i = 0; i < files.length; i++) {
+                formData.append('images[]', files[i]);
+            }
+
+            try {
+                const response = await fetch('upload_post.php', {
+                    method: 'POST',
+                    body: formData // 使用 FormData 傳送檔案
+                });
+                
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    toast.textContent = "Uploaded!";
+                    loadLatestPhoto(); // 重新讀取最新的圖
+                    channel.postMessage('updated'); // 通知其他頁面 (如 social.html)
+                    setTimeout(() => { toast.style.display = 'none'; }, 1500);
+                } else {
+                    alert("Upload failed: " + result.message);
+                }
+            } catch (err) {
+                console.error("傳輸錯誤:", err);
+                toast.style.display = 'none';
+            }
+            e.target.value = ''; // 清空 input
+        }
+        document.getElementById('input_camera').addEventListener('change', handleFileSelect);
+        document.getElementById('input_gallery').addEventListener('change', handleFileSelect);
+
+        // --- ★ 月回顧驚喜功能 (Film Reveal 版) ★ ---
+
+        async function initRecapExperience() {
+            if (!db) await initDB();
+            
+            const now = new Date();
+            let targetMonth = now.getMonth(); 
+            let targetYear = now.getFullYear();
+            if (targetMonth === 0) { targetMonth = 12; targetYear--; }
+
+            const tx = db.transaction("all_photos", "readonly");
+            const store = tx.objectStore("all_photos");
+            const allRecords = [];
+            
+            store.openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const record = cursor.value;
+                    const recordDate = new Date(record.date.replace(/-/g, '/'));
+                    // 檢查是否為上個月的照片
+                    if (recordDate.getMonth() + 1 === targetMonth && recordDate.getFullYear() === targetYear) {
+                        allRecords.push({
+                            image: record.image,
+                            day: record.date.split('-')[2] // 提取真實日期
+                        });
+                    }
+                    cursor.continue();
+                } else {
+                    if(allRecords.length > 0) {
+                        startFilmAnimation(allRecords);
+                    } else {
+                        console.log("No memories found for last month.");
+                    }
+                }
+            };
+        }
+
+        function startFilmAnimation(photos) {
+            const shutterSnd = new Audio('shutter.wav'); 
+            document.getElementById('recapOverlay').style.display = 'flex';
+            const grid = document.getElementById('recapGrid');
+            grid.innerHTML = '';
+            
+            const viewport = document.createElement('div');
+            viewport.className = 'film-viewport';
+            const reel = document.createElement('div');
+            reel.className = 'film-reel';
+
+            // 隨機選取 10 張進行滾動動畫
+            const selected = photos.sort(() => 0.5 - Math.random()).slice(0, 10);
+
+            selected.forEach(item => {
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(item.image);
+                img.style.width = '280px'; img.style.height = '380px'; img.style.objectFit = 'cover';
+                reel.appendChild(img);
+            });
+
+            viewport.appendChild(reel);
+            grid.appendChild(viewport);
+
+            // 觸發洗牌動畫
+            const dist = -(selected.length - 1) * 380;
+            reel.style.setProperty('--travel-distance', `${dist}px`);
+            reel.style.animation = `fastFlashback 2.5s cubic-bezier(0.66, 0, 0.34, 1) forwards`;
+
+            // 2.2 秒處播放快門聲
+            setTimeout(() => { 
+                shutterSnd.play().catch(e => console.log("Audio play blocked")); 
+            }, 2200);
+
+            // 3.2 秒處：底片動畫結束，自動展開長條膠捲 (核心連接點)
+            setTimeout(() => {
+                viewport.style.display = 'none';
+                renderVerticalStrip(selected);
+            }, 3200);
+        }
+
+        function renderVerticalStrip(photos) {
+            const grid = document.getElementById('recapGrid');
+            const scroll = document.createElement('div');
+            scroll.className = 'story-strip-scroll';
+
+            const monthName = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date());
+
+            photos.forEach((item, index) => {
+                const el = document.createElement('div');
+                el.className = 'strip-item torn-edge';
+                el.style.alignSelf = index % 2 === 0 ? 'flex-start' : 'flex-end';
+                el.style.transform = `rotate(${Math.random() * 4 - 2}deg)`;
+
+                el.innerHTML = `
+                    <div class="bg-day-number">${item.day}</div>
+                    <img src="${URL.createObjectURL(item.image)}" style="width:100%; display:block;">
+                    <div class="film-info-text">MEMORIES PRO | ${monthName} '26</div>
+                `;
+                scroll.appendChild(el);
+            });
+            grid.appendChild(scroll);
+        }
+
+        function closeRecap() {
+            document.getElementById('recapOverlay').style.display = 'none';
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // 5. 分享與下載功能
+        async function downloadRecap() {
+            const scrollContainer = document.querySelector('.story-strip-scroll');
+            if (!scrollContainer) return;
+
+            const btnText = document.querySelector('.share-btn');
+            const originalText = btnText.innerText;
+            btnText.innerText = "Capturing...";
+
+            // 確保 html2canvas 已載入
+            if (typeof html2canvas === 'undefined') {
+                alert("Please wait for the library to load.");
+                btnText.innerText = originalText;
+                return;
+            }
+
+            html2canvas(scrollContainer, {
+                useCORS: true, 
+                scale: 2, 
+                backgroundColor: "#F3ECE5",
+                height: scrollContainer.scrollHeight,
+                windowHeight: scrollContainer.scrollHeight
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Memories_Recap_${Date.now()}.png`;
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+                btnText.innerText = originalText;
+                alert("Long-scroll recap saved! ✨");
+            });
+        }
+    </script>
+</body>
+</html>

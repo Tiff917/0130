@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sign Up - Morandi Style</title>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <style>
+        /* CSS 重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* 預設樣式 (桌面/大螢幕)：保持手機模擬器外觀 */
+        body {
+            background-color: #E3D5CA; /* 外部背景：米膚色 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: fixed; /* 鎖定背景防止橡皮筋效應 */
+            width: 100%;
+            overflow: hidden;
+            /* ★ 加入這兩行來鎖死左右滑動 ★ */
+            overflow-x: hidden; 
+            width: 100%;
+        }
+
+        .phone-container {
+            width: 100vh;
+            height: 762px;
+            background-color: #F5EBE1; /* 內部背景：奶油色 */
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(100, 80, 70, 0.15);
+            position: relative;
+            padding: 20px 30px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* 模擬 UI 元素 */
+        .notch, .status-bar, .home-indicator {
+            display: block;
+        }
+
+        .notch {
+            width: 120px;
+            height: 35px;
+            background-color: #000000;
+            border-radius: 20px;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 600;
+            color: #000000;
+            margin-top: 5px;
+            margin-bottom: 25px; /* 註冊頁欄位較多，縮減上方空間 */
+            padding: 0 10px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            flex-grow: 0;
+        }
+
+        .header h1 {
+            font-size: 26px; /* 字體稍微縮小以適配更多內容 */
+            font-weight: 500;
+            line-height: 1.3;
+            color: #6D5D55; 
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 14px; /* 輸入框間距微調 */
+            flex-grow: 1; /* 讓表單區域佔據剩餘空間 */
+        }
+
+        .input-wrapper {
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        
+        .input-wrapper.error {
+            border: 1px solid #ff4d4d;
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .input-wrapper i {
+            color: #bfa093; 
+            font-size: 20px;
+        }
+
+        .input-wrapper input {
+            border: none;
+            background: transparent;
+            width: 100%;
+            outline: none;
+            font-size: 15px;
+            color: #5c4b45;
+        }
+
+        .input-wrapper input::placeholder {
+            color: #bbafa9;
+        }
+
+        .btn-container {
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .signup-btn {
+            width: 100%;
+            padding: 18px;
+            background-color: #D7BDB0;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            box-shadow: 0 8px 15px rgba(215, 189, 176, 0.4);
+        }
+
+        .signup-btn:hover {
+            background-color: #cbb0a3;
+            transform: translateY(-2px);
+        }
+
+        .signup-btn:active {
+            transform: translateY(1px);
+        }
+
+        .footer {
+            margin-top: auto;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 13px;
+            color: #9c8e87;
+        }
+
+        .footer a {
+            text-decoration: none;
+            color: #6D5D55;
+            font-weight: bold;
+        }
+        
+        .home-indicator {
+            width: 130px;
+            height: 5px;
+            background-color: #2c2c2c;
+            border-radius: 3px;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* ========================================= */
+        /* RWD 響應式設計：針對手機螢幕 (寬度小於 480px) */
+        /* ========================================= */
+        @media screen and (max-width: 480px) {
+            body {
+                background-color: #F5EBE1; /* 手機版直接用內層背景色 */
+                align-items: flex-start;
+                /* ★ 確保手機版也鎖死 ★ */
+                overflow-x: hidden;
+            }
+
+            .phone-container {
+                width: 100%;
+                min-height: 100vh;
+                height: auto;
+                
+                /* 移除外框特徵 */
+                border-radius: 0;
+                box-shadow: none;
+                margin: 0;
+                padding: 40px 30px;
+            }
+
+            /* 隱藏模擬 UI */
+            .notch, .status-bar, .home-indicator {
+                display: none;
+            }
+
+            .header {
+                margin-bottom: 30px;
+            }
+
+            .form-group {
+                gap: 16px; /* 手機上稍微增加間距更好點擊 */
+            }
+
+            .footer {
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="phone-container">
+
+        <div class="header">
+            <h1>Make a memory<br>with us</h1>
+        </div>
+
+        <div class="form-group">
+            <div class="input-wrapper" id="nameWrapper">
+                <i class='bx bx-user'></i>
+                <input type="text" id="nameInput" placeholder="Name" autocomplete="name">
+            </div>
+
+            <div class="input-wrapper" id="dobWrapper">
+                <i class='bx bx-calendar'></i>
+                <input type="text" id="dobInput" placeholder="Birthday" onfocus="(this.type='date')" onblur="if(!this.value)this.type='text'">
+            </div>
+
+            <div class="input-wrapper" id="emailWrapper">
+                <i class='bx bx-envelope'></i>
+                <input type="email" id="emailInput" placeholder="G-mail" autocomplete="email">
+            </div>
+
+            <div class="input-wrapper" id="phoneWrapper">
+                <i class='bx bx-mobile'></i>
+                <input type="tel" id="phoneInput" placeholder="Phone" autocomplete="tel">
+            </div>
+
+            <div class="input-wrapper" id="passwordWrapper">
+                <i class='bx bx-lock-alt'></i>
+                <input type="password" id="passwordInput" placeholder="Password" autocomplete="new-password">
+                <i class='bx bx-hide' id="togglePassword" style="cursor: pointer; color: #bfa093;"></i>
+            </div>
+        </div>
+
+        <div class="btn-container">
+            <button class="signup-btn" id="signupBtn">Sign up</button>
+        </div>
+
+        <div class="footer">
+            <p>Already have an account? <a href="login.html" target="_top">Log in</a></p>
+        </div>
+        
+        <div class="home-indicator"></div>
+    </div>
+
+   <script>
+
+        // 1. 進入註冊頁面時，鎖定主殼層滑動以利輸入
+        window.parent.postMessage('lockSwiping', '*');
+
+        // 2. 離開頁面準備跳轉前，解鎖滑動
+        window.addEventListener('beforeunload', () => {
+            window.parent.postMessage('unlockSwiping', '*');
+        });
+
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('passwordInput');
+        const signupBtn = document.getElementById('signupBtn');
+        
+        const inputs = {
+            name: { input: document.getElementById('nameInput'), wrapper: document.getElementById('nameWrapper') },
+            dob: { input: document.getElementById('dobInput'), wrapper: document.getElementById('dobWrapper') },
+            email: { input: document.getElementById('emailInput'), wrapper: document.getElementById('emailWrapper') },
+            phone: { input: document.getElementById('phoneInput'), wrapper: document.getElementById('phoneWrapper') },
+            password: { input: document.getElementById('passwordInput'), wrapper: document.getElementById('passwordWrapper') }
+        };
+
+        // 1. 密碼顯示切換
+        togglePassword.addEventListener('click', function () {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('bx-hide');
+            this.classList.toggle('bx-show');
+        });
+
+        // 2. 註冊按鈕驗證邏輯
+        signupBtn.addEventListener('click', function () {
+            let isValid = true;
+            
+            for (const key in inputs) {
+                const field = inputs[key];
+                const value = field.input.value.trim();
+                
+                field.wrapper.classList.remove('error');
+
+                if (value === "") {
+                    field.wrapper.classList.add('error');
+                    isValid = false;
+                }
+            }
+
+            if (isValid) {
+                // --- ★ 修改處開始：抓取 Name 和 Email ---
+                
+                // 1. 抓取名字
+                const userName = inputs.name.input.value.trim();
+                localStorage.setItem('myProfileName', userName);
+
+                // 2. 抓取 Email (新增這段)
+                const userEmail = inputs.email.input.value.trim();
+                localStorage.setItem('myProfileEmail', userEmail);
+                
+                // 初始化會員狀態
+                localStorage.setItem('isPremium', 'false'); 
+
+                // --- ★ 修改處結束 ---
+
+                signupBtn.textContent = 'Signing up...';
+                signupBtn.style.backgroundColor = '#6D5D55';
+                
+                setTimeout(() => {
+                    window.top.location.href = "onboarding.html";
+                }, 1000);
+            }
+        });
+        
+        // 按 Enter 觸發
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                signupBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>

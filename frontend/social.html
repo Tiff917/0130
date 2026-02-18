@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Social Feed</title>
+    <style>
+        /* --- 1. 基礎設定 --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            background-color: #F3ECE5; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            color: #262626; 
+            overflow-x: hidden;
+            height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+        }
+        body::-webkit-scrollbar { display: none; }
+
+        /* --- 2. 動態牆容器 --- */
+        #feed-container { width: 100%; margin: 0; padding-top: 0; padding-bottom: 60px; }
+
+        /* 貼文卡片 */
+        .post-card { background: #F3ECE5; border-bottom: 1px solid #efefef; margin-bottom: 0; padding-bottom: 10px; }
+
+        /* 貼文頭部 */
+        .post-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; position: relative; }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(0,0,0,0.1); background-color: #dbdbdb; }
+        .username { font-weight: 600; font-size: 14px; text-decoration: none; color: #262626; }
+        .location { font-size: 12px; color: #262626; display: block; }
+
+        /* 圖片輪播 */
+        .media-container { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #fafafa; }
+        .slider { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; height: 100%; }
+        .slider::-webkit-scrollbar { display: none; }
+        .slide-item { flex: 0 0 100%; width: 100%; height: 100%; scroll-snap-align: start; }
+        .slide-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        
+        .image-counter {
+            position: absolute; top: 14px; right: 14px;
+            background: rgba(0,0,0,0.6); color: white;
+            padding: 4px 10px; border-radius: 14px;
+            font-size: 12px; font-weight: 600;
+            display: none; pointer-events: none;
+        }
+
+        /* 互動區 */
+        .action-bar { padding: 10px 14px; display: flex; align-items: center; position: relative; height: 44px; }
+        .action-left { display: flex; gap: 16px; align-items: center; }
+        .icon-btn { cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
+        .icon-btn:active { transform: scale(0.9); }
+        
+        .heart-anim { animation: likeBounce 0.3s ease; }
+        @keyframes likeBounce { 0%{transform:scale(1);} 50%{transform:scale(1.2);} 100%{transform:scale(1);} }
+
+        .pagination-dots { display: flex; gap: 4px; position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background: #dbdbdb; transition: background 0.2s; }
+        .dot.active { background: #bfa093; }
+
+        /* 文字內容 */
+        .post-content { padding: 0 14px; font-size: 14px; }
+        .likes-count { font-weight: 600; margin-bottom: 8px; display: block; }
+        .comment-row { line-height: 1.4; word-wrap: break-word; margin-bottom: 4px; }
+        .comment-user { font-weight: 600; margin-right: 5px; }
+        .timestamp { font-size: 10px; color: #8e8e8e; text-transform: uppercase; margin-bottom: 12px; display: block; }
+
+        /* 簡易留言輸入 (保留在主頁的快速輸入) */
+        .add-comment-section { display: flex; align-items: center; padding-top: 10px; border-top: 1px solid #efefef; margin-top: 5px; }
+        .user-avatar-small { width: 24px; height: 24px; border-radius: 50%; margin-right: 10px; object-fit: cover; background-color: #dbdbdb;}
+        .comment-input { flex: 1; border: none; font-size: 14px; padding: 5px 0; background: transparent; }
+        .post-btn { color: #bfa093; font-weight: 600; font-size: 14px; border: none; background: none; cursor: pointer; padding-left: 10px; opacity: 0.5; pointer-events: none; }
+        .post-btn.active { opacity: 1; pointer-events: auto; }
+
+        /* 空狀態 */
+        .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: #8e8e8e; gap: 15px; }
+        .empty-icon { font-size: 40px; opacity: 0.3; }
+
+        /* 下拉選單 */
+        .popup-menu {
+            display: none; position: absolute; top: 40px; right: 14px;
+            background: white; border: 1px solid #efefef; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px; z-index: 100; width: 100px; animation: fadeIn 0.1s ease; overflow: hidden;
+        }
+        .popup-menu.show { display: block; }
+        .menu-item { padding: 12px; text-align: center; font-size: 14px; font-weight: 600; cursor: pointer; color: #262626; }
+        .menu-item:active { background-color: #fafafa; }
+        .menu-item:not(:last-child) { border-bottom: 1px solid #efefef; }
+        .menu-item.delete { color: #ed4956; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(-5px);} to{opacity:1; transform:translateY(0);} }
+
+        /* Toast */
+        .toast-notification {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8); color: white; padding: 15px 25px; border-radius: 8px;
+            font-size: 14px; font-weight: 600; z-index: 20000; display: none; text-align: center; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .toast-notification.show { display: block; opacity: 1; }
+        #paywall-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(243, 236, 229, 0.98); z-index: 99999;
+            flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+        .unlock-btn { background: #8C735D; color: white; padding: 12px 40px; border-radius: 30px; border: none; font-weight: 600; cursor: pointer; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div id="feed-container">
+        <div class="empty-state" id="loading-msg">
+            <div class="empty-icon">📷</div>
+            <div>Loading feed...</div>
+        </div>
+        <div id="paywall-overlay">
+            <div style="font-size: 80px;">🔒</div>
+            <div style="color: #6D5D50; font-size: 22px; font-weight: bold;">會員專屬內容</div>
+            <button class="unlock-btn" onclick="window.top.location.href='payment.html?from=social'">前往解鎖</button>
+        </div>
+    </div>
+    <div id="toast-msg" class="toast-notification"></div>
+
+    <script>
+        const dbName = "MemoriesDB";
+        let db;
+        let postsData = [];
+        const channel = new BroadcastChannel('memory_update');
+        let userAvatarUrl = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+        // 點擊空白關閉選單
+        window.onclick = function(event) {
+            if (!event.target.closest('.icon-btn') && !event.target.closest('.popup-menu')) {
+                document.querySelectorAll('.popup-menu').forEach(menu => menu.classList.remove('show'));
+            }
+        }
+
+        function checkMembership() {
+            const isVip = localStorage.getItem('isPremiumUser') === 'true';
+            const paywall = document.getElementById('paywall-overlay');
+            if (paywall) paywall.style.display = isVip ? 'none' : 'flex';
+            return isVip;
+        }
+        // --- 資料庫初始化 ---
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 8);
+                request.onupgradeneeded = (e) => {
+                    db = e.target.result;
+                    if (!db.objectStoreNames.contains("posts_timeline")) db.createObjectStore("posts_timeline", { keyPath: "id" });
+                    if (!db.objectStoreNames.contains("user_profile")) db.createObjectStore("user_profile");
+                };
+                request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        // --- 讀取資料 ---
+        async function loadAndRender() {
+            if (!checkMembership()) return;
+            try {
+                await initDB();
+                
+                // 1. 讀取頭像
+                const avatarTx = db.transaction("user_profile", "readonly");
+                const avatarReq = avatarTx.objectStore("user_profile").get("avatar");
+                avatarReq.onsuccess = (e) => {
+                    const res = e.target.result;
+                    if (res && (res instanceof Blob || res instanceof File)) {
+                        userAvatarUrl = URL.createObjectURL(res);
+                    }
+                    document.querySelectorAll('.avatar, .user-avatar-small').forEach(img => img.src = userAvatarUrl);
+                };
+
+                // 2. 讀取貼文
+                const tx = db.transaction("posts_timeline", "readonly");
+                const store = tx.objectStore("posts_timeline");
+                const request = store.openCursor(null, 'prev');
+                const tempPosts = [];
+                
+                request.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) {
+                        const post = cursor.value;
+                        post.imageUrls = post.images.map(blob => 
+                            (blob instanceof Blob || blob instanceof File) ? URL.createObjectURL(blob) : blob
+                        );
+                        if (!post.likes) post.likes = 0;
+                        if (!post.isLiked) post.isLiked = false;
+                        tempPosts.push(post);
+                        cursor.continue();
+                    } else {
+                        postsData = tempPosts;
+                        renderPosts();
+                    }
+                };
+            } catch (e) { console.error("Loading error:", e); }
+        }
+
+        // --- 渲染貼文 ---
+        const feedContainer = document.getElementById('feed-container');
+        const icons = {
+            more: '<svg aria-label="More" color="#262626" fill="#262626" height="24" viewBox="0 0 24 24" width="24"><circle cx="12" cy="12" r="1.5"></circle><circle cx="6" cy="12" r="1.5"></circle><circle cx="18" cy="12" r="1.5"></circle></svg>',
+            heartOutline: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+            heartFilled: '<svg width="24" height="24" viewBox="0 0 24 24" fill="#ed4956" stroke="#ed4956" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+            comment: '<svg aria-label="Comment" fill="none" height="24" viewBox="0 0 24 24" width="24"><path d="M20.656 17.008a9.993 9.993 0 1 0-3.59 3.615L22 22Z" stroke="black" stroke-linejoin="round" stroke-width="2"></path></svg>'
+        };
+
+        function renderPosts() {
+            const storedName = localStorage.getItem('myProfileName');
+            const currentName = storedName ? storedName : "Me"; 
+
+            if (postsData.length === 0) {
+                feedContainer.innerHTML = `<div class="empty-state"><div class="empty-icon">📷</div><div>No posts yet.</div></div>`;
+                return;
+            }
+
+            feedContainer.innerHTML = postsData.map(post => {
+                // --- 關鍵修正：將 realCommentsCount 移動到 map 迴圈內部 ---
+                const realCommentsCount = Math.max(0, (post.comments ? post.comments.length : 0) - 1);
+
+                const imagesHtml = post.imageUrls.map(url => `<div class="slide-item"><img src="${url}"></div>`).join('');
+                const dotsHtml = post.imageUrls.length > 1 ? `<div class="pagination-dots" id="dots-${post.id}">${post.imageUrls.map((_, i) => `<div class="dot ${i===0?'active':''}"></div>`).join('')}</div>` : '';
+                const counterDisplay = post.imageUrls.length > 1 ? 'block' : 'none';
+                
+                let captionText = "";
+                if (post.comments && post.comments.length > 0) {
+                    const firstComment = post.comments[0].text;
+                    // 檢查：過濾佔位符
+                    if (firstComment && firstComment !== "Share a memory..." && firstComment !== "No description.") {
+                        captionText = firstComment;
+                    }
+                }
+                
+                const locationHtml = post.location ? `<span class="location">${post.location}</span>` : `<span class="location">${post.dateString}</span>`;
+                const initialHeart = post.isLiked ? icons.heartFilled : icons.heartOutline;
+                const goToComments = `window.top.location.href='comments.html?id=${post.id}'`;
+
+                return `
+                <div class="post-card" id="post-${post.id}">
+                    <div class="post-header">
+                        <div class="user-info">
+                            <img src="${userAvatarUrl}" class="avatar">
+                            <div><span class="username">${currentName}</span>${locationHtml}</div>
+                        </div>
+                        <div class="icon-btn" onclick="toggleMenu(event, ${post.id})">${icons.more}</div>
+                        <div id="menu-${post.id}" class="popup-menu">
+                            <div class="menu-item" onclick="confirmReport(${post.id})">檢舉</div>
+                            <div class="menu-item delete" onclick="deletePost(${post.id})">刪除</div>
+                        </div>
+                    </div>
+                    <div class="media-container">
+                        <div class="image-counter" id="counter-${post.id}" style="display:${counterDisplay}">1/${post.imageUrls.length}</div>
+                        <div class="slider" onscroll="updateSlider(${post.id})" id="slider-${post.id}">${imagesHtml}</div>
+                    </div>
+                    <div class="action-bar">
+                        <div class="action-left">
+                            <div class="icon-btn" id="like-btn-${post.id}" onclick="toggleLike(${post.id})">${initialHeart}</div>
+                            <div class="icon-btn" onclick="${goToComments}">${icons.comment}</div>
+                        </div>
+                        ${dotsHtml}
+                    </div>
+                    <div class="post-content">
+                        <span class="likes-count" id="likes-count-${post.id}">${post.likes} likes</span>
+                        
+                        ${ captionText ? `<div class="comment-row"><span class="comment-user">${currentName}</span>${captionText}</div>` : '' }
+                        
+                        ${ realCommentsCount > 0 ? `<div style="color:#8e8e8e; margin-bottom:4px; cursor:pointer;" onclick="${goToComments}">View all ${realCommentsCount} comments</div>` : '' }
+                        
+                        <div class="timestamp">${new Date(post.timestamp).toDateString()}</div>
+                        
+                        <div class="add-comment-section">
+                            <img src="${userAvatarUrl}" class="user-avatar-small">
+                            <input type="text" class="comment-input" id="input-${post.id}" placeholder="Add a comment..." autocomplete="off" oninput="checkInput(this, 'btn-${post.id}')" onkeypress="handleEnter(event, ${post.id}, 'input-${post.id}')">
+                            <button class="post-btn" id="btn-${post.id}" onclick="postComment(${post.id}, 'input-${post.id}')">Post</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function updateSlider(postId) {
+            const slider = document.getElementById(`slider-${postId}`);
+            const dotsContainer = document.getElementById(`dots-${postId}`);
+            const counter = document.getElementById(`counter-${postId}`);
+            if (!dotsContainer) return;
+            const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+            Array.from(dotsContainer.children).forEach((dot, i) => dot.classList.toggle('active', i === index));
+            counter.innerText = `${index + 1}/${dotsContainer.children.length}`;
+        }
+
+        async function toggleLike(postId) {
+            const post = postsData.find(p => p.id === postId);
+            const btn = document.getElementById(`like-btn-${postId}`);
+            const countSpan = document.getElementById(`likes-count-${postId}`);
+            if (post.isLiked) {
+                post.likes--; post.isLiked = false;
+                btn.innerHTML = icons.heartOutline; btn.classList.remove('heart-anim');
+            } else {
+                post.likes++; post.isLiked = true;
+                btn.innerHTML = icons.heartFilled; btn.classList.add('heart-anim');
+            }
+            countSpan.innerText = `${post.likes} likes`;
+            await saveTimelineToDB();
+        }
+
+        // --- 功能函式 ---
+        function checkInput(inputEl, btnId) {
+            const btn = document.getElementById(btnId);
+            if (inputEl.value.trim().length > 0) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+
+        function handleEnter(e, postId, inputId) {
+            if (e.key === 'Enter') postComment(postId, inputId);
+        }
+
+        async function saveTimelineToDB() {
+            const tx = db.transaction(["posts_timeline"], "readwrite");
+            const store = tx.objectStore("posts_timeline");
+            postsData.forEach(post => {
+                const postToSave = { ...post }; 
+                delete postToSave.imageUrls; 
+                store.put(postToSave);
+            });
+        }
+
+        async function postComment(postId, inputId) {
+            const input = document.getElementById(inputId);
+            const text = input.value.trim();
+            if (!text) return;
+            const storedName = localStorage.getItem('myProfileName');
+            const myName = storedName ? storedName : "Me";
+            const post = postsData.find(p => p.id === postId);
+            post.comments.push({ user: myName, text: text });
+            input.value = '';
+            renderPosts();
+            await saveTimelineToDB(); 
+        }
+
+        function toggleMenu(event, postId) {
+            event.stopPropagation(); 
+            document.querySelectorAll('.popup-menu.show').forEach(menu => {
+                if (menu.id !== `menu-${postId}`) menu.classList.remove('show');
+            });
+            document.getElementById(`menu-${postId}`).classList.toggle('show');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function confirmReport(postId) {
+            document.getElementById(`menu-${postId}`).classList.remove('show');
+            showToast("已送出檢舉，我們會盡快審核。");
+        }
+
+        function deletePost(postId) {
+            const menu = document.getElementById(`menu-${postId}`);
+            if (menu) menu.classList.remove('show');
+            setTimeout(() => {
+                if(confirm("確定要刪除這則貼文嗎？")) {
+                    const tx = db.transaction(["posts_timeline"], "readwrite");
+                    const store = tx.objectStore("posts_timeline");
+                    store.delete(postId);
+                    tx.oncomplete = () => {
+                        postsData = postsData.filter(p => p.id !== postId);
+                        renderPosts();
+                        showToast("貼文已刪除");
+                    };
+                }
+            }, 10);
+        }
+        loadAndRender();
+        
+        // 監聽頁面切換回來時的狀態 (例如付完錢回來)
+        window.addEventListener('pageshow', () => {
+            checkMembership();
+            loadAndRender();
+        });
+
+        // 找到觸發付費解鎖的按鈕邏輯
+        function goToPay() {
+            // 加上 ?from=social
+            window.top.location.href = "payment.html?from=social";
+        }
+    </script>
+</body>
+</html>

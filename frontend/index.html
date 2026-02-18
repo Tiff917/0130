@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>My Memories PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Memories">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#F3ECE5">
+    <style>
+        /* 核心殼層樣式：確保滑動流暢且不跑版 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* 殼層禁止滾動，滾動交給 iframe 內部 */
+            background-color:  #F3ECE5;
+        }
+
+        /* 三面滑動容器 */
+        .wrapper {
+            display: flex;
+            width: 300vw; /* 三個頁面寬度 */
+            height: 100%;
+            will-change: transform;
+        }
+
+        /* 每一頁的容器 */
+        .page {
+            width: 100vw;
+            height: 100%;
+            flex-shrink: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 強制隔離：iframe 撐滿容器 */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* 透明遮罩層：滑動時防止 iframe 攔截手勢 */
+        .drag-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 9999;
+            pointer-events: none; /* 關鍵：預設讓點擊穿透到 iframe */
+            background: transparent;    
+        }
+    </style>
+</head>
+<body>
+
+    <div class="drag-overlay" id="dragOverlay"></div>
+
+    <div class="wrapper" id="swipeWrapper">
+        <div class="page">
+            <iframe src="memories.html"></iframe>
+        </div>
+
+        <div class="page">
+            <iframe src="home.html"></iframe>
+        </div>
+
+        <div class="page">
+            <iframe src="social.html"></iframe>
+        </div>
+    </div>
+
+    <script>
+    const API_BASE = "https://1220.free.nf/";
+    // 解決 iframe 攔截滑動的問題
+    const frames = document.querySelectorAll('iframe');
+    const overlay = document.getElementById('dragOverlay');
+
+    frames.forEach(frame => {
+        frame.onload = () => {
+            const win = frame.contentWindow;
+            
+            // 當手指點進 iframe 時
+            win.addEventListener('touchstart', (e) => {
+                // 將事件手動傳給外層 window，觸發 main.js 的邏輯
+                window.dispatchEvent(new TouchEvent('touchstart', { touches: e.touches }));
+                // 滑動開始時暫時封鎖點擊，防止 iframe 內部滾動干擾
+                overlay.style.pointerEvents = 'auto'; 
+            }, { passive: true });
+
+            win.addEventListener('touchmove', (e) => {
+                window.dispatchEvent(new TouchEvent('touchmove', { touches: e.touches }));
+            }, { passive: true });
+
+            win.addEventListener('touchend', (e) => {
+                window.dispatchEvent(new TouchEvent('touchend', { changedTouches: e.changedTouches }));
+                // 結束滑動，還原 pointer-events
+                overlay.style.pointerEvents = 'none';
+            }, { passive: true });
+        };
+    });
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW Registered!'))
+            .catch(err => console.log('SW Registration Failed', err));
+        });
+    }
+    function requestNotificationPermission() {
+        if ('Notification' in window) {
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    console.log('通知權限已取得！');
+                }
+            });
+        }
+    }
+
+    // 頁面載入時詢問
+    window.addEventListener('load', requestNotificationPermission);
+    
+        function checkMonthlyNotification() {
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+        const todayDate = now.getDate();
+        const storageKey = `recap_notified_${currentYear}_${currentMonth}`;
+
+        // 檢查：如果是 1 號，且這個月還沒通知過
+        if (todayDate === 1 && !localStorage.getItem(storageKey)) {
+            
+            // 發送訊息給 Service Worker 觸發通知
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SHOW_RECAP_NOTIFICATION',
+                    title: '✨ 您的月度回顧已生成！',
+                    body: `點擊查看您在 ${currentMonth - 1} 月留下的珍貴回憶拼貼。`
+                });
+                
+                // 標記本月已通知，避免重複
+                localStorage.setItem(storageKey, 'true');
+            }
+        }
+    }
+
+    // 啟動檢測
+    setInterval(checkMonthlyNotification, 3600000); // 每小時檢查一次
+    checkMonthlyNotification(); // 載入時立即檢查
+
+    // 增加：安全地接收來自子頁面的鎖定訊息
+    window.addEventListener('message', (e) => {
+        const overlay = document.getElementById('dragOverlay');
+        if (e.data === 'lockSwiping') {
+            window.isLocked = true; // 讓 main.js 知道要鎖定
+            overlay.style.pointerEvents = 'none'; 
+        } else if (e.data === 'unlockSwiping') {
+            window.isLocked = false;
+            overlay.style.pointerEvents = 'auto';
+        }
+    });
+    </script>
+
+    <script src="main.js"></script>
+</body>
+</html>

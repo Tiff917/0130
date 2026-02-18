@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>New Post</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* --- 1. 基礎設定 --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { 
+            background-color: #ffffff; 
+            color: #000; 
+            padding-bottom: 60px; /* 預留底部按鈕空間 */ 
+            overflow-y: auto;
+            height: 100vh;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* --- 2. 頂部導航 --- */
+        .header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 20px; background: #fff; position: sticky; top: 0; z-index: 50;
+        }
+        .header-btn { font-size: 16px; color: #8e8e93; border: none; background: none; cursor: pointer; }
+        .header-title { font-size: 17px; font-weight: 600; }
+        .header-btn.finish { color: #be9f82; font-weight: 600; } 
+
+        /* --- 3. 主圖預覽區 --- */
+        .main-preview-container {
+            position: relative; width: 100%; aspect-ratio: 1/1; 
+            background-color: #f9f9f9; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #mainPreviewImg { width: 100%; height: 100%; object-fit: cover; display: none; transition: opacity 0.2s; }
+        .empty-placeholder { color: #ccc; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+        .overlay-controls {
+            position: absolute; bottom: 15px; right: 15px; left: 15px;
+            display: flex; justify-content: flex-end; align-items: center; gap: 10px; pointer-events: none; 
+        }
+
+        /* --- 按鈕樣式 --- */
+        .control-btn {
+            height: 36px; border: none; color: white; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+            pointer-events: auto; cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .btn-circle { width: 36px; border-radius: 50%; padding: 0; }
+        .btn-capsule { padding: 0 16px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .control-btn svg { width: 13px !important; height: 13px !important; }
+        .btn-text { font-size: 13px; font-weight: 600; margin-left: 0; max-width: 0; opacity: 0; white-space: nowrap; transition: all 0.3s ease; }
+        .btn-capsule .btn-text-static { font-size: 12px; font-weight: 600; margin-left: 6px; }
+        
+        .control-btn.active { background: #be9f82; color: #fff; }
+        #locationBtn.active { width: auto; padding: 0 16px; border-radius: 20px; }
+        #locationBtn.active .btn-text { max-width: 100px; opacity: 1; margin-left: 6px; }
+
+        /* --- 4. 下方網格 --- */
+        .grid-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 2px; }
+        .grid-item { position: relative; aspect-ratio: 1/1; overflow: hidden; background: #eee; cursor: pointer; }
+        .grid-item img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; transition: opacity 0.2s; }
+        .grid-item.active img { opacity: 1; }
+        .camera-upload-item { background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999; cursor: pointer; }
+        .camera-upload-item:active { background-color: #e0e0e0; }
+        .camera-upload-item svg { width: 24px; height: 24px; }
+
+        /* 遮罩與圈圈 */
+        .overlay-mask { position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: none; }
+        .grid-item.selected .overlay-mask { display: block; }
+        .check-circle {
+            position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; z-index: 10; display: none; 
+            border: 2px solid rgba(255, 255, 255, 0.9); background-color: rgba(0, 0, 0, 0.2); 
+            box-shadow: 0 0 4px rgba(0,0,0,0.2); justify-content: center; align-items: center;
+            font-size: 11px; font-weight: 700; color: white; transition: transform 0.1s ease;
+        }
+        .grid-item.mode-select .check-circle { display: flex; }
+        .grid-item.selected .check-circle { background-color: #be9f82; border-color: #be9f82; transform: scale(1.1); }
+
+        /* --- 底部重置按鈕 --- */
+        .reset-btn {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #ff3b30; color: white; border: none; padding: 8px 16px;
+            border-radius: 20px; font-size: 12px; z-index: 100; opacity: 0.8; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="header-btn" onclick="window.parent.postMessage('unlockSwiping', '*'); window.top.location.href='index.html'">Back</button>
+        <div class="header-title">Post</div>
+        <button class="header-btn finish" id="shareBtn">Finish</button>
+    </div>
+
+    <div id="contentArea">
+        <div class="main-preview-container">
+            <div id="emptyPlaceholder" class="empty-placeholder">
+                <i data-lucide="image" style="width:48px; height:48px; opacity:0.2;"></i>
+            </div>
+            
+            <img id="mainPreviewImg" src="" alt="Preview">
+            
+            <div class="overlay-controls">
+                <button class="control-btn btn-circle" id="tagFriendBtn"><i data-lucide="user"></i></button>
+                <button class="control-btn btn-circle" id="locationBtn"><i data-lucide="map-pin"></i><span class="btn-text">Kaohsiung</span></button>
+                <button class="control-btn btn-capsule" id="multiSelectBtn"><i data-lucide="layers"></i><span class="btn-text-static">SELECT MULTIPLE</span></button>
+            </div>
+        </div>
+        
+        <div class="grid-gallery" id="gridGallery"></div>
+        <input type="file" id="imageLoader" accept="image/*" multiple style="display: none;">
+    </div>
+
+    <button class="reset-btn" onclick="hardReset()">⚠️ 重置資料庫</button>
+
+    <canvas id="compressCanvas"></canvas>
+
+    <script>
+        lucide.createIcons();
+        const dbName = "MemoriesDB";
+        let db;
+
+        // --- 1. 變數與 DOM 綁定 ---
+        const mainPreviewImg = document.getElementById('mainPreviewImg');
+        const emptyPlaceholder = document.getElementById('emptyPlaceholder');
+        const gridGallery = document.getElementById('gridGallery');
+        const multiSelectBtn = document.getElementById('multiSelectBtn');
+        const tagFriendBtn = document.getElementById('tagFriendBtn');
+        const locationBtn = document.getElementById('locationBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const imageLoader = document.getElementById('imageLoader');
+        
+        // 狀態變數
+        let pendingImages = []; // 這裡現在存的是 File 物件，不是 Base64 字串
+        let selectedIndices = [];
+        let isSelectMode = false;
+        let isFriendTagged = false;
+        let currentLocation = null;
+        let currentMainIndex = -1;
+
+        // --- 2. 資料庫功能 ---
+        async function hardReset() {
+            if(!confirm("這會清除所有暫存資料以修復卡頓，確定嗎？")) return;
+            if(db) { db.close(); db = null; }
+            const req = indexedDB.deleteDatabase(dbName);
+            req.onsuccess = () => { alert("重置完成！頁面將重新整理。"); location.reload(); };
+            req.onerror = () => { alert("無法刪除，請嘗試關閉其他分頁後再試。"); };
+            req.onblocked = () => { alert("重置被阻擋！請關閉其他開啟此網站的分頁。"); };
+        }
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 8);
+                
+                request.onblocked = () => alert("資料庫被鎖定！請關閉其他分頁後重新整理。");
+
+                request.onupgradeneeded = (e) => {
+                    db = e.target.result;
+                    if (!db.objectStoreNames.contains("posts_timeline")) db.createObjectStore("posts_timeline", { keyPath: "id" });
+                    if (!db.objectStoreNames.contains("all_photos")) db.createObjectStore("all_photos", { autoIncrement: true });
+                };
+
+                request.onsuccess = (e) => { 
+                    db = e.target.result; 
+                    if (!db.objectStoreNames.contains("posts_timeline") || !db.objectStoreNames.contains("all_photos")) {
+                        db.close(); hardReset(); return;
+                    }
+                    resolve(db); 
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        // --- 3. 核心工具：取得圖片連結 ---
+        // 這是實現「秒速預覽」的關鍵
+        function getImageUrl(fileOrUrl) {
+            if (fileOrUrl instanceof File || fileOrUrl instanceof Blob) {
+                return URL.createObjectURL(fileOrUrl);
+            }
+            return fileOrUrl;
+        }
+
+        // --- 4. 圖片上傳處理 (修改版) ---
+        imageLoader.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            // 直接儲存原始檔案，不壓縮、不轉 Base64
+            for (const file of files) {
+                pendingImages.push(file);
+            }
+
+            // 更新介面
+            if (pendingImages.length > 0) {
+                emptyPlaceholder.style.display = 'none';
+                
+                const newIndex = pendingImages.length - 1;
+                currentMainIndex = newIndex;
+                if (!isSelectMode) selectedIndices = [newIndex];
+                
+                renderMainPreview();
+                renderGrid();
+            }
+            
+            // 清空 input 讓同個檔案可以重複選取
+            imageLoader.value = '';
+        });
+
+        // --- 5. 渲染邏輯 ---
+        function renderMainPreview() {
+            if (currentMainIndex !== -1 && pendingImages[currentMainIndex]) {
+                emptyPlaceholder.style.display = 'none';
+                mainPreviewImg.style.display = 'block';
+                // 使用 getImageUrl 來生成預覽連結
+                mainPreviewImg.src = getImageUrl(pendingImages[currentMainIndex]);
+            } else {
+                emptyPlaceholder.style.display = 'flex';
+                mainPreviewImg.style.display = 'none';
+            }
+        }
+
+        function renderGrid() {
+            let html = `
+                <div class="grid-item camera-upload-item" onclick="document.getElementById('imageLoader').click()">
+                    <i data-lucide="image-plus"></i>
+                </div>
+            `;
+            html += pendingImages.map((file, idx) => {
+                const isActive = (idx === currentMainIndex);
+                const selectionIndex = selectedIndices.indexOf(idx);
+                const isSelected = selectionIndex !== -1;
+                const selectionNumber = isSelected ? selectionIndex + 1 : '';
+                
+                let classes = `grid-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}`;
+                if (isSelectMode) classes += ' mode-select';
+                
+                // 使用 getImageUrl 產生縮圖
+                const src = getImageUrl(file);
+
+                return `
+                    <div class="${classes}" onclick="handleGridClick(${idx})">
+                        <img src="${src}">
+                        <div class="overlay-mask"></div>
+                        <div class="check-circle">${selectionNumber}</div>
+                    </div>
+                `;
+            }).join('');
+            gridGallery.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // --- 6. 互動功能 ---
+        window.handleGridClick = (idx) => {
+            currentMainIndex = idx;
+            renderMainPreview();
+            if (isSelectMode) {
+                const existingIndex = selectedIndices.indexOf(idx);
+                if (existingIndex !== -1) selectedIndices.splice(existingIndex, 1);
+                else selectedIndices.push(idx);
+            } else {
+                selectedIndices = [idx];
+            }
+            renderGrid();
+        };
+
+        tagFriendBtn.addEventListener('click', () => {
+            isFriendTagged = !isFriendTagged;
+            tagFriendBtn.classList.toggle('active', isFriendTagged);
+        });
+
+        locationBtn.addEventListener('click', () => {
+            if (currentLocation) {
+                currentLocation = null;
+                locationBtn.classList.remove('active');
+            } else {
+                locationBtn.style.opacity = "0.7";
+                setTimeout(() => {
+                    currentLocation = "Kaohsiung";
+                    locationBtn.style.opacity = "1";
+                    locationBtn.classList.add('active');
+                }, 500);
+            }
+        });
+
+        multiSelectBtn.addEventListener('click', () => {
+            if (pendingImages.length === 0) return;
+            isSelectMode = !isSelectMode;
+            multiSelectBtn.classList.toggle('active', isSelectMode);
+            // 切換模式時，重置或保留當前選擇
+            if (!isSelectMode && currentMainIndex !== -1) selectedIndices = [currentMainIndex];
+            renderGrid();
+        });
+
+        // --- 7. 儲存與發布 (Blob 版) ---
+        shareBtn.addEventListener('click', async () => {
+            if (pendingImages.length === 0) { alert("Please add photos first."); return; }
+            if (selectedIndices.length === 0) { alert("Please select at least one photo."); return; }
+
+            shareBtn.disabled = true;
+            shareBtn.textContent = "Saving...";
+
+            try {
+                if (!db) await initDB();
+
+                const now = new Date();
+                const dateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+                
+                // 取得選取的原始檔案物件 (Files)
+                const imagesToPost = selectedIndices.map(i => pendingImages[i]);
+                
+                const newPost = {
+                    id: Date.now(), 
+                    timestamp: now.getTime(), 
+                    dateString: dateStr,
+                    images: imagesToPost, // 儲存 File 物件
+                    location: currentLocation, 
+                    isFriendTagged: isFriendTagged,
+                    likes: 0, 
+                    comments: []
+                };
+
+                const tx = db.transaction(["posts_timeline", "all_photos"], "readwrite");
+                
+                tx.objectStore("posts_timeline").add(newPost);
+                
+                const memoriesStore = tx.objectStore("all_photos");
+                imagesToPost.forEach(file => {
+                    memoriesStore.add({ date: dateStr, timestamp: now.getTime(), image: file });
+                });
+
+                tx.oncomplete = () => {
+                    const channel = new BroadcastChannel('memory_update');
+                    channel.postMessage('updated');
+                    window.top.location.href = "index.html";
+                };
+
+                tx.onerror = (e) => {
+                    console.error(e);
+                    alert("儲存錯誤: " + e.target.error.message);
+                    shareBtn.disabled = false;
+                    shareBtn.textContent = "Finish";
+                };
+
+            } catch (err) {
+                console.error(err);
+                alert("系統錯誤: " + err.message);
+                shareBtn.disabled = false;
+                shareBtn.textContent = "Finish";
+            }
+        });
+
+        // 初始化
+        window.onunload = () => { if(db) db.close(); };
+        window.onload = () => { renderGrid(); };
+        // 進入發佈頁面時，鎖定主殼層滑動
+        window.parent.postMessage('lockSwiping', '*');
+
+        // 離開頁面時解鎖
+        window.addEventListener('beforeunload', () => {
+            window.parent.postMessage('unlockSwiping', '*');
+        });
+        initDB().catch(e => console.error(e));
+    </script>
+</body>
+</html>
