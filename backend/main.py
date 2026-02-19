@@ -23,7 +23,6 @@ class UserRegister(BaseModel):
 
 # 3. 初始化資料庫
 def init_db():
-    # 這行會在 backend 資料夾生出一個 users.db 檔案
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
     cursor.execute('''
@@ -33,7 +32,8 @@ def init_db():
             dob TEXT,
             email TEXT UNIQUE,
             phone TEXT,
-            password TEXT
+            password TEXT,
+            is_premium INTEGER DEFAULT 0  -- 0 代表普通人，1 代表 VIP
         )
     ''')
     conn.commit()
@@ -69,3 +69,32 @@ async def get_users():
     data = cursor.fetchall()
     conn.close()
     return data
+
+class PremiumRequest(BaseModel):
+    email: str
+
+@app.post("/upgrade_member")
+async def upgrade_member(req: PremiumRequest):
+    try:
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+        # 根據 Email 找到該用戶並把 is_premium 改成 1
+        cursor.execute("UPDATE users SET is_premium = 1 WHERE email = ?", (req.email,))
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": "會員已升級為 Premium"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/check_vip/{email}")
+async def check_vip(email: str):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    # 查詢該 Email 的 is_premium 狀態
+    cursor.execute("SELECT is_premium FROM users WHERE email = ?", (email,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        return {"is_vip": bool(result[0])}
+    return {"is_vip": False}

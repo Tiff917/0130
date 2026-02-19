@@ -136,11 +136,40 @@
             }
         }
 
-        function checkMembership() {
-            const isVip = localStorage.getItem('isPremiumUser') === 'true';
+        // social.html 內的 script
+
+        async function checkMembership() {
+            const email = localStorage.getItem('myProfileEmail');
             const paywall = document.getElementById('paywall-overlay');
-            if (paywall) paywall.style.display = isVip ? 'none' : 'flex';
-            return isVip;
+            
+            // 1. 如果沒登入，直接擋住
+            if (!email) {
+                paywall.style.display = 'flex';
+                return false;
+            }
+
+            try {
+                // 2. 向後端詢問最新會員狀態
+                const response = await fetch(`http://127.0.0.1:8000/check_vip/${email}`);
+                const data = await response.json();
+                const isVip = data.is_vip;
+
+                // 3. 更新本地紀錄，確保同步
+                localStorage.setItem('isPremiumUser', isVip.toString());
+
+                // 4. 控制付費牆顯示
+                if (paywall) {
+                    paywall.style.display = isVip ? 'none' : 'flex';
+                }
+                
+                return isVip;
+            } catch (error) {
+                console.error("無法連接伺服器驗證會員:", error);
+                // 如果伺服器掛了，暫時以本地紀錄為準，避免影響用戶體驗
+                const localVip = localStorage.getItem('isPremiumUser') === 'true';
+                if (paywall) paywall.style.display = localVip ? 'none' : 'flex';
+                return localVip;
+            }
         }
         // --- 資料庫初始化 ---
         function initDB() {
@@ -158,7 +187,8 @@
 
         // --- 讀取資料 ---
         async function loadAndRender() {
-            if (!checkMembership()) return;
+            const isVip = await checkMembership(); 
+            if (!isVip) return;
             try {
                 await initDB();
                 

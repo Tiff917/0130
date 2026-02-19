@@ -321,27 +321,47 @@
             }
 
             if (isValid) {
-                // --- ★ 修改處開始：抓取 Name 和 Email ---
-                
-                // 1. 抓取名字
-                const userName = inputs.name.input.value.trim();
-                localStorage.setItem('myProfileName', userName);
+                // 整理要傳送的資料
+                const userData = {
+                    name: inputs.name.input.value.trim(),
+                    dob: inputs.dob.input.value.trim(),
+                    email: inputs.email.input.value.trim(),
+                    phone: inputs.phone.input.value.trim(),
+                    password: inputs.password.input.value.trim()
+                };
 
-                // 2. 抓取 Email (新增這段)
-                const userEmail = inputs.email.input.value.trim();
-                localStorage.setItem('myProfileEmail', userEmail);
-                
-                // 初始化會員狀態
-                localStorage.setItem('isPremium', 'false'); 
+                signupBtn.textContent = '處理中...';
+                signupBtn.disabled = true; // 防止重複點擊
 
-                // --- ★ 修改處結束 ---
-
-                signupBtn.textContent = 'Signing up...';
-                signupBtn.style.backgroundColor = '#6D5D55';
-                
-                setTimeout(() => {
-                    window.top.location.href = "onboarding.html";
-                }, 1000);
+                // 向後端發送請求 (本地端測試網址為 127.0.0.1:8000)
+                fetch('http://127.0.0.1:8000/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData)
+                })
+                .then(async response => {
+                    const data = await response.json();
+                    if (response.ok) {
+                        alert('註冊成功！');
+                        // 存入 localStorage 當作登入憑證
+                        localStorage.setItem('myProfileName', userData.name);
+                        localStorage.setItem('myProfileEmail', userData.email);
+                        // 跳轉頁面
+                        window.top.location.href = "onboarding.html";
+                    } else {
+                        // 顯示後端傳回的錯誤訊息（例如 Email 重複）
+                        alert('註冊失敗：' + data.detail);
+                        signupBtn.textContent = 'Sign up';
+                        signupBtn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    alert('無法連線到伺服器，請確認後端程式是否已啟動！');
+                    signupBtn.textContent = 'Sign up';
+                    signupBtn.disabled = false;
+                });
             }
         });
         

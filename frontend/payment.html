@@ -222,29 +222,27 @@
             btnText.textContent = "Processing...";
 
             setTimeout(() => {
-            // 1. 儲存付款狀態
-            localStorage.setItem('isPremiumUser', 'true');
+                const userEmail = localStorage.getItem('myProfileEmail'); // 抓取登入時存的 Email
 
-            // 2. 獲取 URL 參數中的來源 (from)
-            const urlParams = new URLSearchParams(window.location.search);
-            const source = urlParams.get('from'); // 獲取 ?from=xxx
-
-            // 3. 成功提示
-            alert("Payment Successful! You are now a Premium Member.");
-
-            // 4. 解鎖外殼滑動
-            window.parent.postMessage('unlockSwiping', '*');
-
-            // 5. 根據來源決定跳轉目的地
-            if (source === 'social') {
-                // 如果是從 Social 來的，跳回首頁並切換到 Social 分頁 (假設 index.html 會處理)
-                // 或者是直接跳到 social.html 所在的頂層路徑
-                window.top.location.href = "index.html?tab=social"; 
-            } else {
-                // 預設（或來源是 profile）跳回 Profile
-                window.top.location.href = "profile.html";
-            }
-        }, 2000);
+                // --- 新增：通知後端升級會員 ---
+                fetch('http://127.0.0.1:8000/upgrade_member', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: userEmail })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log("後端同步成功:", data);
+                    localStorage.setItem('isPremiumUser', 'true'); // 前端緩存也存一份
+                    alert("Payment Successful! You are now a Premium Member.");
+                    
+                    // 跳轉邏輯維持不變
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const source = urlParams.get('from');
+                    window.top.location.href = (source === 'social') ? "index.html?tab=social" : "profile.html";
+                })
+                .catch(err => alert("雖然付款成功，但資料同步失敗，請聯絡客服"));
+            }, 2000);
     });
     </script>
 </body>

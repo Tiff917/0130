@@ -267,7 +267,7 @@
             if (savedEmail) {
                 emailDiv.innerText = savedEmail;
             }
-            loadAvatar();
+            checkStatus();
         });
 
         // 當使用者打完字，點擊旁邊(失去焦點)時觸發
@@ -346,10 +346,51 @@
             }
         }
         function logout() {
-            if(confirm('Are you sure you want to log out?')) window.top.location.href = "login.html"; 
+            if(confirm('Are you sure you want to log out?')) {
+                localStorage.removeItem('myProfileName');
+                localStorage.removeItem('myProfileEmail');
+                localStorage.removeItem('isPremiumUser');
+                window.top.location.href = "login.html"; 
+            }
         }
 
-        checkStatus();
+        async function checkStatus() {
+            const email = localStorage.getItem('myProfileEmail');
+            const row = document.getElementById('subscriptionRow');
+            const text = document.getElementById('subText');
+
+            if (!email) return;
+
+            try {
+                // 1. 向後端詢問最新身分
+                const response = await fetch(`http://127.0.0.1:8000/check_vip/${email}`);
+                const data = await response.json();
+                const isVip = data.is_vip;
+
+                // 2. 同步本地緩存
+                localStorage.setItem('isPremiumUser', isVip.toString());
+
+                // 3. 根據身分切換 UI 樣式
+                if (isVip) {
+                    row.classList.add('is-premiumUser');
+                    text.innerHTML = 'Subscription <span style="color: #D4AF37; font-size: 12px; margin-left: 5px;">★ Premium</span>';
+                    // 加強視覺：名字旁邊也加個勾勾
+                    if (!usernameField.innerHTML.includes('bx-badge-check')) {
+                        usernameField.innerHTML += ' <i class="bx bxs-badge-check" style="color:#D4AF37; font-size:16px;"></i>';
+                    }
+                } else {
+                    row.classList.remove('is-premiumUser');
+                    text.textContent = "Subscription";
+                }
+            } catch (error) {
+                console.error("會員驗證連線失敗:", error);
+                // 離線備案：維持原本本地判斷
+                if (localStorage.getItem('isPremiumUser') === 'true') {
+                    row.classList.add('is-premiumUser');
+                    text.textContent = "Subscription (Active)";
+                }
+            }
+        }
     </script>
 </body>
 </html>
